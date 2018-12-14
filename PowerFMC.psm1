@@ -471,18 +471,31 @@ $headers = @{ "X-auth-access-token" = "$AuthToken" ;'Content-Type' = 'applicatio
 $Name = $Name -replace '(\\|\/|\s)','_'
 
 $PortObjects  = Get-FMCPortObject -fmcHost $FMCHost -AuthToken $AuthToken -Domain $Domain -Terse
-$PortObjects += Get-FMCPortGroup  -fmcHost $FMCHost -AuthToken $AuthToken -Domain $Domain -Terse
+$PortObjects += Get-FMCPortGroup  -fmcHost $FMCHost -AuthToken $AuthToken -Domain $Domain
 $objects = @()
 $Members.Split(',') | foreach {
    $member = $_ -replace '\\|\/|\s','_'
+   $PortObject = @()
    $PortObject = $PortObjects | Where-Object -Property name -EQ $member
-   $id   = $PortObject.id
-   $type = $PortObject.type
-   $object = New-Object psobject
-   $object | Add-Member -MemberType NoteProperty -Name type -Value $type
-   $object | Add-Member -MemberType NoteProperty -Name id   -Value $id
-   $objects += $object
-                   }
+   if (!$PortObject.id) {Write-Host "Object $member does not exist" -ForegroundColor Yellow} else {
+    if ($PortObject.type -like "*Group*") { 
+     $PortObject.objects | foreach {
+      $id   = $_.id
+      $type = $_.type
+      $object = New-Object psobject
+      $object | Add-Member -MemberType NoteProperty -Name type -Value $type
+      $object | Add-Member -MemberType NoteProperty -Name id   -Value $id
+      $objects += $object
+      }
+     } else {
+    $id   = $PortObject.id
+    $type = $PortObject.type
+    $object = New-Object psobject
+    $object | Add-Member -MemberType NoteProperty -Name type -Value $type
+    $object | Add-Member -MemberType NoteProperty -Name id   -Value $id
+    $objects += $object}
+    }
+  }
  
 $body = New-Object -TypeName psobject
 $body | Add-Member -MemberType NoteProperty -name type        -Value "PortObjectGroup"
@@ -814,9 +827,11 @@ $literals     = @()
 $objects      = @()
 $SourceNetObj = @()
 $SourceNetLit = @()
-$SourceNetworks_split = $SourceNetworks -split ','
+$SourceNetworks = $SourceNetworks.TrimStart(' ')
+$SourceNetworks = $SourceNetworks.TrimEnd(' ')
+$SourceNetworks_split = $SourceNetworks -split ',\n|,'
 $SourceNetworks_split | foreach {
-                     if ($_ -match '(^\d+\.\d+\.\d+\.\d+$|^\d+\.\d+\.\d+\.\d+\/\d\d$|^\d+\.\d+\.\d+\.\d+\-\d+\.\d+\.\d+\.\d+$)') {
+                     if ($_ -match '(^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\-\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$)') {
                         $literals += $_} else {$objects += $_}}
  if ($objects) { $objects | foreach {
             $i = $AllNetObjects | Where-Object -Property name -EQ $_
@@ -843,9 +858,11 @@ $literals     = @()
 $objects      = @()
 $DestinationNetObj = @()
 $DestinationNetLit = @()
-$DestinationNetworks_split = $DestinationNetworks -split ','
+$DestinationNetworks = $DestinationNetworks.TrimStart(' ')
+$DestinationNetworks = $DestinationNetworks.TrimEnd(' ')
+$DestinationNetworks_split = $DestinationNetworks -split ',\n|,'
 $DestinationNetworks_split | foreach {
-                     if ($_ -match '(^\d+\.\d+\.\d+\.\d+$|^\d+\.\d+\.\d+\.\d+\/\d\d$|^\d+\.\d+\.\d+\.\d+\-\d+\.\d+\.\d+\.\d+$)') {
+                     if ($_ -match '(^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\-\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$)') {
                         $literals += $_} else {$objects += $_}}
  if ($objects) { $objects | foreach {
             $i = $AllNetObjects | Where-Object -Property name -EQ $_
@@ -878,12 +895,15 @@ $literals     = @()
 $objects      = @()
 $SourcePortObj = @()
 $SourcePortLit = @()
-$SourcePorts_split = $SourcePorts -split ','
+$SourcePorts = $SourcePorts.TrimStart(' ')
+$SourcePorts = $SourcePorts.TrimEnd(' ')
+$SourcePorts_split = $SourcePorts -split ',\n|,'
 $SourcePorts_split | foreach {
                      if ($_ -match '(^\w+?\/\d+$|^\w+?\/\d+\-\d+$)') {
                         $literals += $_} else {$objects += $_}}
  if ($objects) { $objects | foreach {
-            $i = $AllPortObjects | Where-Object -Property name -EQ $_
+            
+            $i = $AllPortObjects | Where-Object -Property name -EQ ($_ -replace '\s|\\|\/','_')
             $Obj = New-Object psobject
             $Obj | Add-Member -MemberType NoteProperty -Name type -Value $i.type
             $Obj | Add-Member -MemberType NoteProperty -Name name -Value $i.name
@@ -892,8 +912,7 @@ $SourcePorts_split | foreach {
             }}
  if ($literals) { $literals | foreach {
             $i = $_ -split '\/'
-            $i[0] = $i[0] -replace 'tcp','6'
-            $i[0] = $i[0] -replace 'udp','17'
+            $i[0] = $MasterProtocolListByName[$i[0]]
             $Obj = New-Object psobject
             $Obj | Add-Member -MemberType NoteProperty -Name type     -Value PortLiteral
             $Obj | Add-Member -MemberType NoteProperty -Name port     -Value $i[1]
@@ -910,12 +929,14 @@ $literals     = @()
 $objects      = @()
 $DestinationPortObj = @()
 $DestinationPortLit = @()
-$DestinationPorts_split = $DestinationPorts -split ','
+$DestinationPorts = $DestinationPorts.TrimStart(' ')
+$DestinationPorts = $DestinationPorts.TrimEnd(' ')
+$DestinationPorts_split = $DestinationPorts -split ',\n|,'
 $DestinationPorts_split | foreach {
                      if ($_ -match '(^\w+?\/\d+$|^\w+?\/\d+\-\d+$)') {
                         $literals += $_} else {$objects += $_}}
  if ($objects) { $objects | foreach {
-            $i = $AllPortObjects | Where-Object -Property name -EQ $_
+            $i = $AllPortObjects | Where-Object -Property name -EQ ($_ -replace '\s|\\|\/','_')
             $Obj = New-Object psobject
             $Obj | Add-Member -MemberType NoteProperty -Name type -Value $i.type
             $Obj | Add-Member -MemberType NoteProperty -Name name -Value $i.name
@@ -924,8 +945,7 @@ $DestinationPorts_split | foreach {
             }}
  if ($literals) { $literals | foreach {
             $i = $_ -split '\/'
-            $i[0] = $i[0] -replace 'tcp','6'
-            $i[0] = $i[0] -replace 'udp','17'
+            $i[0] = $MasterProtocolListByName[$i[0]]
             $Obj = New-Object psobject
             $Obj | Add-Member -MemberType NoteProperty -Name type     -Value PortLiteral
             $Obj | Add-Member -MemberType NoteProperty -Name port     -Value $i[1]
@@ -1952,9 +1972,11 @@ $literals     = @()
 $objects      = @()
 $SourceNetObj = @()
 $SourceNetLit = @()
-$SourceNetworks_split = $SourceNetworks -split ','
+$SourceNetworks = $SourceNetworks.TrimStart(' ')
+$SourceNetworks = $SourceNetworks.TrimEnd(' ')
+$SourceNetworks_split = $SourceNetworks -split ',\n|,'
 $SourceNetworks_split | foreach {
-                     if ($_ -match '(^\d+\.\d+\.\d+\.\d+$|^\d+\.\d+\.\d+\.\d+\/\d\d$|^\d+\.\d+\.\d+\.\d+\-\d+\.\d+\.\d+\.\d+$)') {
+                     if ($_ -match '(^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\-\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$)') {
                         $literals += $_} else {$objects += $_}}
  if ($objects) { $objects | foreach {
             $i = $AllNetObjects | Where-Object -Property name -EQ $_
@@ -1982,9 +2004,11 @@ $literals     = @()
 $objects      = @()
 $DestinationNetObj = @()
 $DestinationNetLit = @()
-$DestinationNetworks_split = $DestinationNetworks -split ','
+$DestinationNetworks = $DestinationNetworks.TrimStart(' ')
+$DestinationNetworks = $DestinationNetworks.TrimEnd(' ')
+$DestinationNetworks_split = $DestinationNetworks -split ',\n|,'
 $DestinationNetworks_split | foreach {
-                     if ($_ -match '(^\d+\.\d+\.\d+\.\d+$|^\d+\.\d+\.\d+\.\d+\/\d\d$|^\d+\.\d+\.\d+\.\d+\-\d+\.\d+\.\d+\.\d+$)') {
+                     if ($_ -match '(^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\-\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$)') {
                         $literals += $_} else {$objects += $_}}
  if ($objects) { $objects | foreach {
             $i = $AllNetObjects | Where-Object -Property name -EQ $_
@@ -2015,7 +2039,9 @@ $literals     = @()
 $objects      = @()
 $SourcePortObj = @()
 $SourcePortLit = @()
-$SourcePorts_split = $SourcePorts -split ','
+$SourcePorts = $SourcePorts.TrimStart(' ')
+$SourcePorts = $SourcePorts.TrimEnd(' ')
+$SourcePorts_split = $SourcePorts -split ',\n|,'
 $SourcePorts_split | foreach {
                      if ($_ -match '(^\w+?\/\d+$|^\w+?\/\d+\-\d+$)') {
                         $literals += $_} else {$objects += $_}}
@@ -2030,8 +2056,7 @@ $SourcePorts_split | foreach {
             }}
  if ($literals) { $literals | foreach {
             $i = $_ -split '\/'
-            $i[0] = $i[0] -replace 'tcp','6'
-            $i[0] = $i[0] -replace 'udp','17'
+            $i[0] = $MasterProtocolListByName[$i[0]]
             $Obj = New-Object psobject
             $Obj | Add-Member -MemberType NoteProperty -Name type     -Value PortLiteral
             $Obj | Add-Member -MemberType NoteProperty -Name port     -Value $i[1]
@@ -2049,7 +2074,9 @@ $literals     = @()
 $objects      = @()
 $DestinationPortObj = @()
 $DestinationPortLit = @()
-$DestinationPorts_split = $DestinationPorts -split ','
+$DestinationPorts = $DestinationPorts.TrimStart(' ')
+$DestinationPorts = $DestinationPorts.TrimEnd(' ')
+$DestinationPorts_split = $DestinationPorts -split ',\n|,'
 $DestinationPorts_split | foreach {
                      if ($_ -match '(^\w+?\/\d+$|^\w+?\/\d+\-\d+$)') {
                         $literals += $_} else {$objects += $_}}
@@ -2064,8 +2091,7 @@ $DestinationPorts_split | foreach {
             }}
  if ($literals) { $literals | foreach {
             $i = $_ -split '\/'
-            $i[0] = $i[0] -replace 'tcp','6'
-            $i[0] = $i[0] -replace 'udp','17'
+            $i[0] = $MasterProtocolListByName[$i[0]]
             $Obj = New-Object psobject
             $Obj | Add-Member -MemberType NoteProperty -Name type     -Value PortLiteral
             $Obj | Add-Member -MemberType NoteProperty -Name port     -Value $i[1]
@@ -2310,27 +2336,40 @@ $PortGroup = Get-FMCPortGroup -name $Name -fmcHost $FMCHost -AuthToken $AuthToke
 $uri = $PortGroup.links.self
 $headers = @{ "X-auth-access-token" = "$AuthToken" ;'Content-Type' = 'application/json' }
 $PortObjects  = Get-FMCPortObject -fmcHost $FMCHost -AuthToken $AuthToken -Domain $Domain -Terse
-$PortObjects += Get-FMCPortGroup  -fmcHost $FMCHost -AuthToken $AuthToken -Domain $Domain -Terse
+$PortObjects += Get-FMCPortGroup  -fmcHost $FMCHost -AuthToken $AuthToken -Domain $Domain
         }
 Process {
 $objects = @()
 $Members.Split(',') | foreach {
-   $PortObject = $PortObjects | Where-Object -Property name -EQ $_
-   $id   = $PortObject.id
-   $type = $PortObject.type
-   $object = New-Object psobject
-   $object | Add-Member -MemberType NoteProperty -Name type -Value $type
-   $object | Add-Member -MemberType NoteProperty -Name id   -Value $id
-   $objects += $object
-                   }
-
+   $member = $_ -replace '\\|\/|\s','_'
+   $PortObject = @()
+   $PortObject = $PortObjects | Where-Object -Property name -EQ $member
+   if (!$PortObject.id) {Write-Host "Object $member does not exist" -ForegroundColor Yellow} else {
+    if ($PortObject.type -like "*Group*") { 
+     $PortObject.objects | foreach {
+      $id   = $_.id
+      $type = $_.type
+      $object = New-Object psobject
+      $object | Add-Member -MemberType NoteProperty -Name type -Value $type
+      $object | Add-Member -MemberType NoteProperty -Name id   -Value $id
+      $objects += $object
+      }
+     } else {
+    $id   = $PortObject.id
+    $type = $PortObject.type
+    $object = New-Object psobject
+    $object | Add-Member -MemberType NoteProperty -Name type -Value $type
+    $object | Add-Member -MemberType NoteProperty -Name id   -Value $id
+    $objects += $object}
+    }
+  }
  if (!$Replace) {
   $objects += $PortGroup.objects
   if (!$Description) {$Description = $PortGroup.description}
   }
 $body = New-Object -TypeName psobject
 $body | Add-Member -MemberType NoteProperty -name id          -Value $PortGroup.id
-$body | Add-Member -MemberType NoteProperty -name name        -Value $Name
+$body | Add-Member -MemberType NoteProperty -name name        -Value $PortGroup.name
 $body | Add-Member -MemberType NoteProperty -name type        -Value "PortObjectGroup"
 $body | Add-Member -MemberType NoteProperty -name objects     -Value $objects
 $body | Add-Member -MemberType NoteProperty -name overridable -Value $Overridable
