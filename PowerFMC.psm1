@@ -736,6 +736,9 @@ Selects the IPS policy for the rule
                [int]$insertBefore,
 
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
+            [string]$comment,
+
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
             [string]$FMCHost="$env:FMCHost",
 
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
@@ -902,13 +905,13 @@ $SourcePorts_split | foreach {
                      if ($_ -match '(^\w+?\/\d+$|^\w+?\/\d+\-\d+$)') {
                         $literals += $_} else {$objects += $_}}
  if ($objects) { $objects | foreach {
-            
+            if ($MasterProtocolListByName[$_]) { $literals += $_} else {
             $i = $AllPortObjects | Where-Object -Property name -EQ ($_ -replace '\s|\\|\/','_')
             $Obj = New-Object psobject
             $Obj | Add-Member -MemberType NoteProperty -Name type -Value $i.type
             $Obj | Add-Member -MemberType NoteProperty -Name name -Value $i.name
             $Obj | Add-Member -MemberType NoteProperty -Name id   -Value $i.id
-            $SourcePortObj += $Obj
+            $SourcePortObj += $Obj}
             }}
  if ($literals) { $literals | foreach {
             $i = $_ -split '\/'
@@ -936,12 +939,13 @@ $DestinationPorts_split | foreach {
                      if ($_ -match '(^\w+?\/\d+$|^\w+?\/\d+\-\d+$)') {
                         $literals += $_} else {$objects += $_}}
  if ($objects) { $objects | foreach {
+            if ($MasterProtocolListByName[$_]) { $literals += $_} else {
             $i = $AllPortObjects | Where-Object -Property name -EQ ($_ -replace '\s|\\|\/','_')
             $Obj = New-Object psobject
             $Obj | Add-Member -MemberType NoteProperty -Name type -Value $i.type
             $Obj | Add-Member -MemberType NoteProperty -Name name -Value $i.name
             $Obj | Add-Member -MemberType NoteProperty -Name id   -Value $i.id
-            $DestinationPortObj += $Obj
+            $DestinationPortObj += $Obj}
             }}
  if ($literals) { $literals | foreach {
             $i = $_ -split '\/'
@@ -972,6 +976,7 @@ $ipsPolicy | Add-Member -MemberType NoteProperty -name id   -Value $ipsPolicyID.
 $ipsPolicy | Add-Member -MemberType NoteProperty -name type -Value $ipsPolicyID.type
 }
 
+if ($comment) {$comments = New-Object -TypeName psobject @{newComments = $comment}}
 $body = New-Object -TypeName psobject
 $body | Add-Member -MemberType NoteProperty -name type            -Value 'AccessRule'
 $body | Add-Member -MemberType NoteProperty -name enabled         -Value $Enabled
@@ -987,6 +992,7 @@ if ($dPorts)    { $body | Add-Member -MemberType NoteProperty -name destinationP
 $body | Add-Member -MemberType NoteProperty -name logBegin        -Value $logBegin
 $body | Add-Member -MemberType NoteProperty -name logEnd          -Value $logEnd
 $body | Add-Member -MemberType NoteProperty -name sendEventsToFMC -Value $SendEventsToFMC
+if ($comment) {$body | Add-Member -MemberType NoteProperty -name newComments -Value $comments.Values}
 if ($JSON) {$uri ; ($body | ConvertTo-Json -Depth 5)} else {
 Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body ($body | ConvertTo-Json -Depth 5)
                                                            } 
