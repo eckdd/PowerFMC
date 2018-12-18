@@ -752,6 +752,7 @@ Selects the IPS policy for the rule
 
     )
 Begin   {
+$FMCErrors = @()
 add-type @"
     using System.Net;
     using System.Security.Cryptography.X509Certificates;
@@ -994,10 +995,25 @@ $body | Add-Member -MemberType NoteProperty -name logEnd          -Value $logEnd
 $body | Add-Member -MemberType NoteProperty -name sendEventsToFMC -Value $SendEventsToFMC
 if ($comment) {$body | Add-Member -MemberType NoteProperty -name newComments -Value $comments.Values}
 if ($JSON) {$uri ; ($body | ConvertTo-Json -Depth 5)} else {
-Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body ($body | ConvertTo-Json -Depth 5)
+try {
+ Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body ($body | ConvertTo-Json -Depth 5)
+    } catch {
+       Write-Host "$RuleName could not be created:" -ForegroundColor DarkRed -BackgroundColor White
+       Write-Host $_.Exception.Message -ForegroundColor DarkRed -BackgroundColor White
+       $e = New-Object psobject
+       $e | Add-Member -MemberType NoteProperty -Name Rule -Value $RuleName
+       $e | Add-Member -MemberType NoteProperty -Name URI  -Value $uri
+       $e | Add-Member -MemberType NoteProperty -Name JSON -Value ($body | ConvertTo-Json -Depth 5)
+       $FMCErrors += $e
+            }
                                                            } 
         }
-End     {}
+End     {
+if ($FMCErrors) {
+ 
+ }
+
+}
 }
 function Get-FMCObject              {
     <#
