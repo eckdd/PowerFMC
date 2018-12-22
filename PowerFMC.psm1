@@ -691,22 +691,22 @@ Selects the IPS policy for the rule
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
             [string]$DestinationPorts,
 
-        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
         [ValidateSet("True","False")] 
-            [string]$Enabled='True',
+            [string]$Enabled,
 
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
             [string]$IntrusionPolicy,
 
-        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
         [ValidateSet("True","False")] 
            [string]$LogBegin,
 
-        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
         [ValidateSet("True","False")] 
             [string]$LogEnd,
 
-        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
         [ValidateSet("True","False")] 
             [string]$SendEventsToFMC,
 
@@ -980,7 +980,7 @@ $ipsPolicy | Add-Member -MemberType NoteProperty -name type -Value $ipsPolicyID.
 if ($comment) {$comments = New-Object -TypeName psobject @{newComments = $comment}}
 $body = New-Object -TypeName psobject
 $body | Add-Member -MemberType NoteProperty -name type            -Value 'AccessRule'
-$body | Add-Member -MemberType NoteProperty -name enabled         -Value $Enabled
+$body | Add-Member -MemberType NoteProperty -name enabled         -Value (Get-Culture).TextInfo.ToTitleCase($Enabled.tolower())
 $body | Add-Member -MemberType NoteProperty -name name            -Value $RuleName
 $body | Add-Member -MemberType NoteProperty -name action          -Value $Action
 if ($ipsPolicy) { $body | Add-Member -MemberType NoteProperty -name ipsPolicy            -Value $ipsPolicy }
@@ -990,9 +990,9 @@ if ($sNets)     { $body | Add-Member -MemberType NoteProperty -name sourceNetwor
 if ($dNets)     { $body | Add-Member -MemberType NoteProperty -name destinationNetworks  -Value $dNets }
 if ($sPorts)    { $body | Add-Member -MemberType NoteProperty -name sourcePorts          -Value $sPorts }
 if ($dPorts)    { $body | Add-Member -MemberType NoteProperty -name destinationPorts     -Value $dPorts }
-$body | Add-Member -MemberType NoteProperty -name logBegin        -Value $logBegin
-$body | Add-Member -MemberType NoteProperty -name logEnd          -Value $logEnd
-$body | Add-Member -MemberType NoteProperty -name sendEventsToFMC -Value $SendEventsToFMC
+$body | Add-Member -MemberType NoteProperty -name logBegin        -Value (Get-Culture).TextInfo.ToTitleCase($logBegin.tolower())
+$body | Add-Member -MemberType NoteProperty -name logEnd          -Value (Get-Culture).TextInfo.ToTitleCase($logEnd.tolower())
+$body | Add-Member -MemberType NoteProperty -name sendEventsToFMC -Value (Get-Culture).TextInfo.ToTitleCase($SendEventsToFMC.tolower())
 if ($comment) {$body | Add-Member -MemberType NoteProperty -name newComments -Value $comments.Values}
 if ($JSON) {$uri ; ($body | ConvertTo-Json -Depth 5)} else {
 try {
@@ -1640,7 +1640,9 @@ $i | Add-Member -MemberType NoteProperty -Name SourceNetworks     -Value ($srcNe
 
 $srcPort=@()
 if ($_.sourcePorts.objects)  {foreach ($obj in $_.sourcePorts.objects)  {$srcPort+=[string]$obj.name}}
-if ($_.sourcePorts.literals) {foreach ($lit in $_.sourcePorts.literals) {$srcPort+=[string]$MasterProtocolList[[int]$lit.protocol]+'\'+[string]$lit.port}}
+if ($_.sourcePorts.literals) {foreach ($lit in $_.sourcePorts.literals) {if (!$lit.port) {
+    $srcPort+=[string]$MasterProtocolList[[int]$lit.protocol]} else {
+    $srcPort+=[string]$MasterProtocolList[[int]$lit.protocol]+'/'+[string]$lit.port}}}
 $i | Add-Member -MemberType NoteProperty -Name SourcePorts -Value ($srcPort -join ",`n")
 
 $dstNet=@()
@@ -1650,7 +1652,9 @@ $i | Add-Member -MemberType NoteProperty -Name DestinationNetworks -Value ($dstN
 
 $dstPort=@()
 if ($_.destinationPorts.objects)  {foreach ($obj in $_.destinationPorts.objects)  {$dstPort+=[string]$obj.name}}
-if ($_.destinationPorts.literals) {foreach ($lit in $_.destinationPorts.literals) {$dstPort+=[string]$MasterProtocolList[[int]$lit.protocol]+'\'+[string]$lit.port}}
+if ($_.destinationPorts.literals) {foreach ($lit in $_.destinationPorts.literals) {if (!$lit.port) {
+    $dstPort+=[string]$MasterProtocolList[[int]$lit.protocol]} else {    
+    $dstPort+=[string]$MasterProtocolList[[int]$lit.protocol]+'/'+[string]$lit.port}}}
 $i | Add-Member -MemberType NoteProperty -Name DestinationPorts -Value ($dstPort -join ",`n")
 
 $url=@()
@@ -1663,7 +1667,7 @@ if ($_.applications) {foreach ($app in $_.applications.applications) {$apps+=[st
 $i | Add-Member -MemberType NoteProperty -Name Applications    -Value ($apps -join ",`n")
 
 $i | Add-Member -MemberType NoteProperty -Name SGT             -Value $_.sourceSGT.objects.name
-$i | Add-Member -MemberType NoteProperty -Name IPSPolicy       -Value $_.ipsPolicy.name
+$i | Add-Member -MemberType NoteProperty -Name IntrusionPolicy -Value $_.ipsPolicy.name
 $i | Add-Member -MemberType NoteProperty -Name FilePolicy      -Value $_.filePolicy.name
 $i | Add-Member -MemberType NoteProperty -Name Enabled         -Value $_.enabled
 $i | Add-Member -MemberType NoteProperty -Name LogBegin        -Value $_.logBegin
@@ -1675,7 +1679,7 @@ $i | Add-Member -MemberType NoteProperty -Name SNMPConfig      -Value $_.snmpCon
 
 $comments=@()
 if ($_.commentHistoryList) {foreach ($com in $_.commentHistoryList) {$comments+=[string]$com.comment}}
-$i | Add-Member -MemberType NoteProperty -Name Somments -Value ($comments -join ",`n")
+$i | Add-Member -MemberType NoteProperty -Name Comments -Value ($comments -join ",`n")
 
 $fileObject += $i
  }
