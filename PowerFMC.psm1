@@ -1679,7 +1679,7 @@ $i | Add-Member -MemberType NoteProperty -Name SNMPConfig      -Value $_.snmpCon
 
 $comments=@()
 if ($_.commentHistoryList) {foreach ($com in $_.commentHistoryList) {$comments+=[string]$com.comment}}
-$i | Add-Member -MemberType NoteProperty -Name Comments -Value ($comments -join ",`n")
+$i | Add-Member -MemberType NoteProperty -Name Comment -Value ($comments -join ",`n")
 
 $fileObject += $i
  }
