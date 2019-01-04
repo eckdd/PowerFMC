@@ -1887,7 +1887,7 @@ Selects the IPS policy for the rule
             [string]$SendEventsToFMC,
 
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
-            [string]$Comments,
+            [string]$Comment,
 
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
             [string]$FMCHost="$env:FMCHost",
@@ -2148,12 +2148,10 @@ $fPolicy   | Add-Member -MemberType NoteProperty -name name -Value $fPolicyID.na
 $fPolicy   | Add-Member -MemberType NoteProperty -name id   -Value $fPolicyID.id
 $fPolicy   | Add-Member -MemberType NoteProperty -name type -Value $fPolicyID.type
 } else { $fPolicy = $InputObject.filePolicy}
-
-if ($Comments) {
- $newComments = New-Object -TypeName psobject
- $newComments | Add-Member -MemberType NoteProperty -Name comment -Value $Comments
+if ($Comment) {
+ $Comments = @()
+ $Comments += $Comment
  } 
-
 $body = New-Object -TypeName psobject
 $body | Add-Member -MemberType NoteProperty -name name -Value $InputObject.Name
 if ($rule_Enabled)            {$body | Add-Member -MemberType NoteProperty -name enabled             -Value $rule_Enabled}
@@ -2169,7 +2167,7 @@ if ($sNets)                   {$body | Add-Member -MemberType NoteProperty -name
 if ($dNets)                   {$body | Add-Member -MemberType NoteProperty -name destinationNetworks -Value $dNets }
 if ($sPorts)                  {$body | Add-Member -MemberType NoteProperty -name sourcePorts         -Value $sPorts }
 if ($dPorts)                  {$body | Add-Member -MemberType NoteProperty -name destinationPorts    -Value $dPorts }
-#if ($newComments)             {$body | Add-Member -MemberType NoteProperty -name newComments         -Value $newComments }
+if ($Comments)                {$body | Add-Member -MemberType NoteProperty -name newComments         -Value $Comments }
 if ($rule_logBegin)           {$body | Add-Member -MemberType NoteProperty -name logBegin            -Value $rule_logBegin }
 if ($rule_logEnd)             {$body | Add-Member -MemberType NoteProperty -name logEnd              -Value $rule_logEnd }
 if ($rule_syslogConfig)       {$body | Add-Member -MemberType NoteProperty -name syslogConfig        -Value $rule_syslogConfig}
