@@ -792,7 +792,7 @@ $headers = @{ "X-auth-access-token" = "$AuthToken" ;'Content-Type' = 'applicatio
 
 if ($SourceZones -or $DestinationZones) {
  if ($SourceZones)      {
- $SourceZones_split = $SourceZones -split ','
+ $SourceZones_split = $SourceZones -split ',|,\n|\n'
  $sZ = @()
  $SourceZones_split | foreach {
                $i = @()
@@ -807,7 +807,7 @@ $sZones = New-Object psobject
 $sZones | Add-Member -MemberType NoteProperty -Name objects -Value $sZ
  }
  if ($DestinationZones) {
-$DestinationZones_split = $DestinationZones -split ','
+$DestinationZones_split = $DestinationZones -split ',|,\n|\n'
 $dZ = @()
 $DestinationZones_split | foreach {
                $i = @()
@@ -833,7 +833,7 @@ $SourceNetObj = @()
 $SourceNetLit = @()
 $SourceNetworks = $SourceNetworks.TrimStart(' ')
 $SourceNetworks = $SourceNetworks.TrimEnd(' ')
-$SourceNetworks_split = $SourceNetworks -split ',\n|,'
+$SourceNetworks_split = $SourceNetworks -split ',|,\n|\n'
 $SourceNetworks_split | foreach {
                      if ($_ -match '(^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\-\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$)') {
                         $literals += $_} else {$objects += $_}}
@@ -864,7 +864,7 @@ $DestinationNetObj = @()
 $DestinationNetLit = @()
 $DestinationNetworks = $DestinationNetworks.TrimStart(' ')
 $DestinationNetworks = $DestinationNetworks.TrimEnd(' ')
-$DestinationNetworks_split = $DestinationNetworks -split ',\n|,'
+$DestinationNetworks_split = $DestinationNetworks -split ',|,\n|\n'
 $DestinationNetworks_split | foreach {
                      if ($_ -match '(^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\-\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$)') {
                         $literals += $_} else {$objects += $_}}
@@ -901,7 +901,7 @@ $SourcePortObj = @()
 $SourcePortLit = @()
 $SourcePorts = $SourcePorts.TrimStart(' ')
 $SourcePorts = $SourcePorts.TrimEnd(' ')
-$SourcePorts_split = $SourcePorts -split ',\n|,'
+$SourcePorts_split = $SourcePorts -split ',|,\n|\n'
 $SourcePorts_split | foreach {
                      if ($_ -match '(^\w+?\/\d+$|^\w+?\/\d+\-\d+$)') {
                         $literals += $_} else {$objects += $_}}
@@ -935,7 +935,7 @@ $DestinationPortObj = @()
 $DestinationPortLit = @()
 $DestinationPorts = $DestinationPorts.TrimStart(' ')
 $DestinationPorts = $DestinationPorts.TrimEnd(' ')
-$DestinationPorts_split = $DestinationPorts -split ',\n|,'
+$DestinationPorts_split = $DestinationPorts -split ',|,\n|\n'
 $DestinationPorts_split | foreach {
                      if ($_ -match '(^\w+?\/\d+$|^\w+?\/\d+\-\d+$)') {
                         $literals += $_} else {$objects += $_}}
