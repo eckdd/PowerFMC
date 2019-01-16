@@ -693,22 +693,25 @@ Selects the IPS policy for the rule
 
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
         [ValidateSet("True","False")] 
-            [string]$Enabled,
+            [string]$Enabled='True',
 
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
             [string]$IntrusionPolicy,
 
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
         [ValidateSet("True","False")] 
-           [string]$LogBegin,
+           [string]$LogBegin='False',
 
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
         [ValidateSet("True","False")] 
-            [string]$LogEnd,
+            [string]$LogEnd='False',
 
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
         [ValidateSet("True","False")] 
-            [string]$SendEventsToFMC,
+            [string]$SendEventsToFMC='False',
+
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
+            [string]$Syslog,
 
        # [Parameter(ParameterSetName="SectionOnly",    Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
        # [Parameter(ParameterSetName="SectionBefore",  Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
@@ -773,6 +776,7 @@ $AllNetObjects  += Get-FMCNetworkGroup  -AuthToken $env:FMCAuthToken -FMCHost $e
 $AllPortObjects  = @()
 $AllPortObjects  = Get-FMCPortObject -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
 $AllPortObjects += Get-FMCPortGroup  -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$SyslogAlerts    = Get-FMCObject -uri "$env:FMCHost/api/fmc_config/v1/domain/$env:FMCDomain/policy/syslogalerts" -AuthToken $env:FMCAuthToken
          }
 Process {
 $policyUUID = (Get-FMCAccessPolicy -Name $AccessPolicy -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse).id
@@ -833,9 +837,9 @@ $SourceNetObj = @()
 $SourceNetLit = @()
 $SourceNetworks = $SourceNetworks.TrimStart(' ')
 $SourceNetworks = $SourceNetworks.TrimEnd(' ')
-$SourceNetworks_split = $SourceNetworks -split ',|,\n|\n'
+$SourceNetworks_split = (($SourceNetworks -split ',|,\n|\n').TrimStart(' ')).TrimEnd(' ')
 $SourceNetworks_split | foreach {
-                     if ($_ -match '(^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\-\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$)') {
+                     if ($_ -match '(^(\d{1,3}\.){3}\d{1,3}$|^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$|^(\d{1,3}\.){3}\d{1,3}\-(\d{1,3}\.){3}\d{1,3})') {
                         $literals += $_} else {$objects += $_}}
  if ($objects) { $objects | foreach {
             $i = $AllNetObjects | Where-Object -Property name -EQ $_
@@ -864,9 +868,9 @@ $DestinationNetObj = @()
 $DestinationNetLit = @()
 $DestinationNetworks = $DestinationNetworks.TrimStart(' ')
 $DestinationNetworks = $DestinationNetworks.TrimEnd(' ')
-$DestinationNetworks_split = $DestinationNetworks -split ',|,\n|\n'
+$DestinationNetworks_split = (($DestinationNetworks -split ',|,\n|\n').TrimStart(' ')).TrimEnd(' ')
 $DestinationNetworks_split | foreach {
-                     if ($_ -match '(^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\-\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$)') {
+                     if ($_ -match '(^(\d{1,3}\.){3}\d{1,3}$|^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$|^(\d{1,3}\.){3}\d{1,3}\-(\d{1,3}\.){3}\d{1,3})') {
                         $literals += $_} else {$objects += $_}}
  if ($objects) { $objects | foreach {
             $i = $AllNetObjects | Where-Object -Property name -EQ $_
@@ -968,7 +972,12 @@ $DestinationPorts_split | foreach {
 }
 ## /Parsing Source or destination ports
 
-
+if ($Syslog) {
+ $SyslogItem = New-Object psobject
+ $SyslogItem | Add-Member -MemberType NoteProperty -Name name -Value ($SyslogAlerts.items | where {$_.name -eq $Syslog}).name
+ $SyslogItem | Add-Member -MemberType NoteProperty -Name id   -Value ($SyslogAlerts.items | where {$_.name -eq $Syslog}).id
+ $SyslogItem | Add-Member -MemberType NoteProperty -Name type -Value ($SyslogAlerts.items | where {$_.name -eq $Syslog}).type
+ }
 if ($IntrusionPolicy) {
 $ipsPolicyID = Get-FMCIntrusionPolicy -Name $IntrusionPolicy -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
 $ipsPolicy = New-Object -TypeName psobject
@@ -990,6 +999,7 @@ if ($sNets)     { $body | Add-Member -MemberType NoteProperty -name sourceNetwor
 if ($dNets)     { $body | Add-Member -MemberType NoteProperty -name destinationNetworks  -Value $dNets }
 if ($sPorts)    { $body | Add-Member -MemberType NoteProperty -name sourcePorts          -Value $sPorts }
 if ($dPorts)    { $body | Add-Member -MemberType NoteProperty -name destinationPorts     -Value $dPorts }
+if ($Syslog)    { $body | Add-Member -MemberType NoteProperty -name syslogConfig         -Value $SyslogItem }
 $body | Add-Member -MemberType NoteProperty -name logBegin        -Value (Get-Culture).TextInfo.ToTitleCase($logBegin.tolower())
 $body | Add-Member -MemberType NoteProperty -name logEnd          -Value (Get-Culture).TextInfo.ToTitleCase($logEnd.tolower())
 $body | Add-Member -MemberType NoteProperty -name sendEventsToFMC -Value (Get-Culture).TextInfo.ToTitleCase($SendEventsToFMC.tolower())
@@ -1886,6 +1896,9 @@ Selects the IPS policy for the rule
         [ValidateSet("True","False")] 
             [string]$SendEventsToFMC,
 
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
+            [string]$Syslog,
+
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
             [string]$Comment,
 
@@ -1923,6 +1936,7 @@ add-type @"
 "@
 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
 [System.Net.ServicePointManager]::SecurityProtocol = 'Tls12'
+
 if ($SourceZones -or $DestinationZones) {$AllZones = Get-FMCZone -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse}
 if ($IntrusionPolicy)                   {$AllIPSPolicies  = Get-FMCIntrusionPolicy -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse}
 if ($FilePolicy)                        {$AllFilePolicies = Get-FMCIntrusionPolicy -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse}
@@ -1936,6 +1950,7 @@ if ($SourcePorts    -or $DestinationPorts)    {
        $AllPortObjects  = Get-FMCPortObject -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
        $AllPortObjects += Get-FMCPortGroup  -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
        }
+if ($Syslog)                            {$SyslogAlerts = Get-FMCObject -uri "$env:FMCHost/api/fmc_config/v1/domain/$env:FMCDomain/policy/syslogalerts" -AuthToken $env:FMCAuthToken}
          }
 Process {
 $ruleUUID   = $InputObject.id
@@ -1949,10 +1964,10 @@ if (!$urls)            {$rule_urls            = $InputObject.urls}            el
 if (!$vlanTags)        {$rule_vlanTags        = $InputObject.vlanTags}        else {$rule_vlanTags        = $vlanTags       }
 if (!$logBegin)        {$rule_logBegin        = $InputObject.logBegin}        else {$rule_logBegin        = $logBegin       }
 if (!$logEnd)          {$rule_logEnd          = $InputObject.logEnd}          else {$rule_logEnd          = $logEnd         }
-if (!$syslogConfig)    {$rule_syslogConfig    = $InputObject.syslogConfig}    else {$rule_syslogConfig    = $syslogConfig   }
 if (!$snmpConfig)      {$rule_snmpConfig      = $InputObject.snmpConfig}      else {$rule_snmpConfig      = $snmpConfig     }
 if (!$variableSet)     {$rule_variableSet     = $InputObject.variableSet}     else {$rule_variableSet     = $variableSet    }
 if (!$logFiles)        {$rule_logFiles        = $InputObject.logFiles}        else {$rule_logFiles        = $logFiles       }
+if (!$Syslog)          {$SyslogItem           = $InputObject.syslogConfig}    else {$rule_Syslog          = $Syslog         }
 if (!$applications)    {$rule_applications    = $InputObject.applications}    else {$rule_applications    = $applications   }
 if (!$sourceSGT)       {$rule_sourceSGT       = $InputObject.sourceSGT}       else {$rule_sourceSGT       = $sourceSGT      }
 if (!$sendEventsToFMC) {$rule_sendEventsToFMC = $InputObject.sendEventsToFMC} else {$rule_sendEventsToFMC = $sendEventsToFMC}
@@ -2148,6 +2163,14 @@ $fPolicy   | Add-Member -MemberType NoteProperty -name name -Value $fPolicyID.na
 $fPolicy   | Add-Member -MemberType NoteProperty -name id   -Value $fPolicyID.id
 $fPolicy   | Add-Member -MemberType NoteProperty -name type -Value $fPolicyID.type
 } else { $fPolicy = $InputObject.filePolicy}
+
+if ($rule_Syslog) {
+ $SyslogItem = New-Object psobject
+ $SyslogItem | Add-Member -MemberType NoteProperty -Name name -Value ($SyslogAlerts.items | where {$_.name -eq $rule_Syslog}).name
+ $SyslogItem | Add-Member -MemberType NoteProperty -Name id   -Value ($SyslogAlerts.items | where {$_.name -eq $rule_Syslog}).id
+ $SyslogItem | Add-Member -MemberType NoteProperty -Name type -Value ($SyslogAlerts.items | where {$_.name -eq $rule_Syslog}).type
+ }
+
 if ($Comment) {
  $Comments = @()
  $Comments += $Comment
@@ -2170,7 +2193,7 @@ if ($dPorts)                  {$body | Add-Member -MemberType NoteProperty -name
 if ($Comments)                {$body | Add-Member -MemberType NoteProperty -name newComments         -Value $Comments }
 if ($rule_logBegin)           {$body | Add-Member -MemberType NoteProperty -name logBegin            -Value $rule_logBegin }
 if ($rule_logEnd)             {$body | Add-Member -MemberType NoteProperty -name logEnd              -Value $rule_logEnd }
-if ($rule_syslogConfig)       {$body | Add-Member -MemberType NoteProperty -name syslogConfig        -Value $rule_syslogConfig}
+if ($SyslogItem)              {$body | Add-Member -MemberType NoteProperty -name syslogConfig        -Value $SyslogItem}
 if ($rule_snmpConfig)         {$body | Add-Member -MemberType NoteProperty -name snmpConfig          -Value $rule_snmpConfig}
 if ($variableSet)             {$body | Add-Member -MemberType NoteProperty -name variableSet         -Value $rule_variableSet}
 if ($rule_logFiles)           {$body | Add-Member -MemberType NoteProperty -name logFiles            -Value $rule_logFiles}
