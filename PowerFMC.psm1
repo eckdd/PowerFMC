@@ -21,7 +21,7 @@ REST account password
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
             [string]$Username,
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
-            [string]$Password
+            $Password=(Get-Credential -UserName $Username -Message "Enter Credentials for $FMCHost").GetNetworkCredential().password
 
     )
 Begin {
@@ -114,11 +114,11 @@ Create network objects in FMC
  .DESCRIPTION
 This cmdlet will invoke a REST request against the FMC API and add items under /object/networks
  .EXAMPLE
-New-FMCNetworkObject -name 'PowerFMC_Net'   -Network '172.21.33.0/24'              -description 'Test Object for PowerFMC'
+New-FMCNetworkObject -name 'PowerFMC_Net' -Network '172.21.33.0/24' -description 'Test Network for PowerFMC'
 
-New-FMCNetworkObject -name 'PowerFMC_Host'  -Network '172.21.33.7'                 -description 'Test Object for PowerFMC'
+New-FMCNetworkObject -name 'PowerFMC_Host' -Network '172.21.33.7' -description 'Test Host for PowerFMC'
 
-New-FMCNetworkObject -name 'PowerFMC_Range' -Network '172.21.33.100-172.21.33.200' -description 'Test Object for PowerFMC'
+New-FMCNetworkObject -name 'PowerFMC_Range' -Network '172.21.33.100-172.21.33.200' -description 'Test Range for PowerFMC'
  .PARAMETER fmcHost
 Base URL of FMC
  .PARAMETER AuthAccessToken
@@ -200,11 +200,13 @@ Create network groups in FMC
  .DESCRIPTION
 This cmdlet will invoke a REST request against the FMC API and create Network Groups
  .EXAMPLE
-New-FMCNetworkGroup -Members 'PowerFMC_Host,PowerFMC_Net,PowerFMC_Range' -Name 'PowerFMC_Group1' -Description 'Group made with PowerFMC'
+New-FMCNetworkGroup -Members 'PowerFMC_Host,PowerFMC_Net,PowerFMC_Range' -Name 'PowerFMC_Group1' -Description 'Group containing objects'
 
-New-FMCNetworkGroup -Members '10.10.10.0/24,20.20.20.20,30.30.30.100-30.30.30.200' -Name 'PowerFMC_Group2' -Description 'Group made with PowerFMC'
+New-FMCNetworkGroup -Members '10.10.10.0/24,20.20.20.20,30.30.30.100-30.30.30.200' -Name 'PowerFMC_Group2' -Description 'Group containing literals'
 
-New-FMCNetworkGroup -Members '1.1.1.1,PowerFMC_Host' -Name 'PowerFMC_Group2' -Description 'Group made with PowerFMC'
+New-FMCNetworkGroup -Members '1.1.1.1,PowerFMC_Host' -Name 'PowerFMC_Group2' -Description 'Group containing objects and literals'
+
+New-FMCNetworkGroup -Name Objects -Members (((Get-FMCNetworkObject Net0*).name) -join ',') -Description 'Group containin objects that begin with "Net0"'
 
  .PARAMETER fmcHost
 Base URL of FMC
@@ -334,9 +336,7 @@ Create Port objects in FMC
  .DESCRIPTION
 This cmdlet will invoke a REST request against the FMC API and add items under /object/protocolportobjects
  .EXAMPLE
-$FMCHost = 'https://fmcrestapisandbox.cisco.com'
-$a = New-FMCAuthToken -fmcHost $FMCHost -username 'davdecke' -password 'YDgQ7CBR'
-$a | New-FMCPortObject -Name PowerFMC_Test123 -protocol TCP -port 123
+New-FMCPortObject -Name PowerFMC_Test123 -protocol TCP -port 123
  .PARAMETER fmcHost
 Base URL of FMC
  .PARAMETER AuthAccessToken
@@ -413,8 +413,6 @@ Create port groups in FMC
  .DESCRIPTION
 This cmdlet will invoke a REST request against the FMC API and create Port Groups
  .EXAMPLE
-$FMCHost = 'https://fmcrestapisandbox.cisco.com'
-
 New-FMCPortGroup -Name PowerFMC_PortGroup -Members 'PowerFMC_Test123,PowerFMC_Test567' -Description 'Group with two objects'
 
 New-FMCPortGroup -Name PowerFMC_PortGroup -Members 'tcp/55,udp/100-110,PowerFMC_Test567' -Description 'Mixed objects/literals'
@@ -517,7 +515,7 @@ Creates a new acccess policy
  .DESCRIPTION
 Invokes a REST post method to create a new access policy
  .EXAMPLE
-$a | New-FMCAccessPolicy -Name PowerFMC_AccessPolicy -Description 'Access Policy Created with PowerFMC'
+New-FMCAccessPolicy -Name PowerFMC_AccessPolicy -Description 'Access Policy Created with PowerFMC'
  .PARAMETER fmcHost
 Base URL of FMC
  .PARAMETER AuthAccessToken
@@ -619,14 +617,14 @@ $csv[1]
 AccessPolicy        : TST1111
 Name                : BulkTest2
 Action              : BLOCK_RESET
+Enabled             : True
 SourceZones         : MC-INSIDE
 DestinationZones    : MC-OUTSIDE
 SourceNetworks      : 100.1.1.2
 DestinationNetworks : 200.1.1.2
-SourcePorts         :
 DestinationPorts    : tcp/112,udp/1002
 
-$csv | New-FMCAccessPolicyRule -AuthToken $a.AuthAccessToken -Domain $a.Domain -FMCHost $a.fmcHost
+$csv | New-FMCAccessPolicyRule
  .PARAMETER fmcHost
 Base URL of FMC
  .PARAMETER AuthAccessToken
@@ -1033,7 +1031,7 @@ Post a new object to the REST API
 This cmdlet will invoke a REST get against the FMC API path
  .EXAMPLE
 $uri = https://fmcrestapisandbox.cisco.com/api/fmc_config/v1/domain/e276abec-e0f2-11e3-8169-6d9ed49b625f/policy/accesspolicies/005056BB-0B24-0ed3-0000-399431961128/accessrules/005056BB-0B24-0ed3-0000-000268479706
-Get-FMCObject -uri $uri -AuthToken 637a1b3f-787b-4179-be40-e19ee2aa9e60
+Get-FMCObject -uri $uri
  .PARAMETER uri
 Resource location
  .PARAMETER AuthAccessToken
@@ -1076,7 +1074,12 @@ Displays network objects in FMC
  .DESCRIPTION
 This cmdlet will invoke a REST request against the FMC API and retrieve items under /object/networks
  .EXAMPLE
-Get-FMCNetworkObject -fmcHost "https://fmcrestapisandbox.cisco.com" -username 'davdecke' -password 'YDgQ7CBR'
+Get-FMCNetworkObject
+
+Get-FMCNetworkObject -Name NetworkObject1
+
+Get-FMCNetworkObject -Name NetworkObject*
+
  .PARAMETER fmcHost
 Base URL of FMC
  .PARAMETER AuthAccessToken
@@ -1114,7 +1117,7 @@ add-type @"
 if ($Terse) {$Expanded='false'} else {$Expanded='true'}
       }
 Process {
- $uri         = "$FMCHost/api/fmc_config/v1/domain/$Domain/object/networks?offset=0&limit=25&expanded=$Expanded"
+ $uri         = "$FMCHost/api/fmc_config/v1/domain/$Domain/object/networkaddresses?offset=0&limit=25&expanded=$Expanded"
  $headers     = @{ "X-auth-access-token" = "$AuthToken" }
  $response    = Invoke-RestMethod -Method Get -Uri $uri -Headers $headers
  [int]$pages  = $response.paging.pages
@@ -1122,11 +1125,12 @@ Process {
  $items       = $response.items
  while ($pages -gt 1) {
     [int]$offset = $offset+25
-    $uri         = "$FMCHost/api/fmc_config/v1/domain/$Domain/object/networks?offset=$offset&limit=25&expanded=$Expanded"
+    $uri         = "$FMCHost/api/fmc_config/v1/domain/$Domain/object/networkaddresses?offset=$offset&limit=25&expanded=$Expanded"
     $response    = Invoke-RestMethod -Method Get -Uri $uri -Headers $headers
     $items      += $response.items
     $pages--
                       }
+
 $NetObjects      = $items | Where-Object {$_.name -like $Name}
 $NetObjects 
         }
@@ -1139,7 +1143,7 @@ Displays network groups in FMC
  .DESCRIPTION
 This cmdlet will invoke a REST request against the FMC API and retrieve items under /object/networkgroups
  .EXAMPLE
-# Get-FMCNetworkObject -fmcHost "https://fmcrestapisandbox.cisco.com" -AuthToken 'e276abec-e0f2-11e3-8169-6d9ed49b625f' -Domain '618846ea-6e3e-4d69-8f30-55f31b52ca3e'
+# Get-FMCNetworkObject
  .PARAMETER fmcHost
 Base URL of FMC
  .PARAMETER AuthAccessToken
