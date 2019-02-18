@@ -19,12 +19,19 @@ Firepower Mangement Center 6.2.3
 Paste the following in PowerShell:
 
 md ($env:PSModulePath -split ';')[0] -ErrorAction Ignore
+
 cd ($env:PSModulePath -split ';')[0]
+
 Start-BitsTransfer -Source https://github.com/eckdd/PowerFMC/archive/master.zip -Destination .
+
 Expand-Archive -Path .\master.zip
+
 md .\PowerFMC -ErrorAction Ignore
+
 copy ".\master\PowerFMC-master\*" -Container PowerFMC -Force
+
 del .\master\ -Force -Recurse
+
 del .\master.zip
 
 # Usage 
