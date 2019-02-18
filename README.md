@@ -14,15 +14,18 @@ The functions in this module invoke REST calls to the FMC API enabling the bulk 
 This module was developed in PowerShell version 5.1 on Windows 10.
 Firepower Mangement Center 6.2.3
 
-# Setup
+# Setup/Update
 
-1. Create a folder called 'PowerFMC' in one of the PowerShell module paths listed in the $env:PSModulePath variable (e.g. C:\Program Files\WindowsPowerShell\Modules).
+Paste the following in PowerShell:
 
-2. Copy the contents of this repository into the PowerFMC folder.
-
-3. Load the module by running 'Import-Module PowerFMC' in PowerShell
-
-4. View available functions by running 'Get-Command -Module PowerFMC'
+md ($env:PSModulePath -split ';')[0] -ErrorAction Ignore
+cd ($env:PSModulePath -split ';')[0]
+Start-BitsTransfer -Source https://github.com/eckdd/PowerFMC/archive/master.zip -Destination .
+Expand-Archive -Path .\master.zip
+md .\PowerFMC -ErrorAction Ignore
+copy ".\master\PowerFMC-master\*" -Container PowerFMC -Force
+del .\master\ -Force -Recurse
+del .\master.zip
 
 # Usage 
 
