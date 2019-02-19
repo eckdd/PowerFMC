@@ -2534,16 +2534,14 @@ Prefix length for network (32 for host)
 /#>
     param
     (
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
+            [switch]$Force,
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
+            [switch]$NoWarn,
         [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
             [string]$id,
         [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
             [string]$version,
-        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
-        [ValidateSet("True","False")] 
-            [string]$Force="False",
-        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
-        [ValidateSet("True","False")] 
-            [string]$NoWarning="False",
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
             [string]$FMCHost="$env:FMCHost",
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
@@ -2551,7 +2549,10 @@ Prefix length for network (32 for host)
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
             [string]$AuthToken="$env:FMCAuthToken"
     )
-Begin {}
+Begin {
+ if ($Force) {[string]$Force  = 'True'}
+ if ($NoWarn){[string]$NoWarn = 'True'}
+ }
 Process {
 $uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/deployment/deploymentrequests"
  
@@ -2559,7 +2560,7 @@ $body = New-Object -TypeName psobject
 $body | Add-Member -MemberType NoteProperty -name type          -Value "DeploymentRequest"
 $body | Add-Member -MemberType NoteProperty -name version       -Value $Version
 $body | Add-Member -MemberType NoteProperty -name forceDeploy   -Value $Force
-$body | Add-Member -MemberType NoteProperty -name ignoreWarning -Value $NoWarning
+$body | Add-Member -MemberType NoteProperty -name ignoreWarning -Value $NoWarn
 $body | Add-Member -MemberType NoteProperty -name deviceList    -Value @($id)
 New-FMCObject -uri $uri -AuthToken $env:FMCAuthToken -object ($body | ConvertTo-Json)
         }
