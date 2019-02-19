@@ -28,7 +28,7 @@ Expand-Archive -Path .\master.zip
 
 md .\PowerFMC -ErrorAction Ignore
 
-copy ".\master\PowerFMC-master\*" -Container PowerFMC -Force
+copy ".\master\PowerFMC-master\\*" -Container PowerFMC -Force
 
 del .\master\ -Force -Recurse
 
