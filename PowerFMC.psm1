@@ -1834,24 +1834,12 @@ while ($pages -gt 1) {
                       }
 
 $DepDevs = $DepDevs | where {$_.name -like $Name}
-
-$offset   = 0
-$uri      = "$FMCHost/api/fmc_config/v1/domain/$Domain/devices/devicerecords?offset=$offset&limit=25&expanded=true"
-$response = Get-FMCObject -uri $uri -AuthToken $env:FMCAuthToken
-$pages    = $response.paging.pages
-$DevRecs  = $response.items
-while ($pages -gt 1) {
-    $offset   = $offset+25
-    $pages--
-    $uri      = "$FMCHost/api/fmc_config/v1/domain/$Domain/devices/devicerecords?offset=$offset&limit=25&expanded=true"
-    $response = Get-FMCObject -uri $uri -AuthToken $env:FMCAuthToken
-    $DevRecs += $response.items
-                      }
+                     
 
  foreach ($dd in $DepDevs) {
   $i = New-Object psobject
   $i | Add-Member -MemberType NoteProperty -Name Name     -Value $dd.name
-  $i | Add-Member -MemberType NoteProperty -Name id       -Value ($DevRecs | where {$_.name -eq $dd.name}).id
+  $i | Add-Member -MemberType NoteProperty -Name id       -Value $dd.device.id
   $i | Add-Member -MemberType NoteProperty -Name version  -Value $dd.version
   $i | Add-Member -MemberType NoteProperty -Name Interupt -Value $dd.trafficInterruption
   $i | Add-Member -MemberType NoteProperty -Name Status   -Value ($dd.policyStatusList | where {$_.upToDate -ne 'True'})
