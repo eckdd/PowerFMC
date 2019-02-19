@@ -2544,21 +2544,25 @@ Domain UUID
             [string]$AuthToken="$env:FMCAuthToken"
     )
 Begin {
- if ($Force) {[string]$Force  = 'True'}
- if ($NoWarn){[string]$NoWarn = 'True'}
+ if ($Force) {[string]$FD = 'True'} else {[string]$FD = 'False'}
+ if ($NoWarn){[string]$NW = 'True'} else {[string]$NW = 'False'}
+ $body = New-Object -TypeName psobject
+ $body | Add-Member -MemberType NoteProperty -name type          -Value "DeploymentRequest"
+ $body | Add-Member -MemberType NoteProperty -name forceDeploy   -Value $FD
+ $body | Add-Member -MemberType NoteProperty -name ignoreWarning -Value $NW
+ $IDs = @()
  }
 Process {
-$uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/deployment/deploymentrequests"
- 
-$body = New-Object -TypeName psobject
-$body | Add-Member -MemberType NoteProperty -name type          -Value "DeploymentRequest"
-$body | Add-Member -MemberType NoteProperty -name version       -Value $Version
-$body | Add-Member -MemberType NoteProperty -name forceDeploy   -Value $Force
-$body | Add-Member -MemberType NoteProperty -name ignoreWarning -Value $NoWarn
-$body | Add-Member -MemberType NoteProperty -name deviceList    -Value @($id)
-New-FMCObject -uri $uri -AuthToken $env:FMCAuthToken -object ($body | ConvertTo-Json)
+ $body | Add-Member -MemberType NoteProperty -name version       -Value $version
+ $IDs += $id
         }
-End {}
+End {
+$body | Add-Member -MemberType NoteProperty -name deviceList    -Value $IDs
+
+$uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/deployment/deploymentrequests"
+($body | ConvertTo-Json)
+New-FMCObject -uri $uri -AuthToken $env:FMCAuthToken -object ($body | ConvertTo-Json)
+    }
 }
 
 
