@@ -2525,12 +2525,6 @@ Base URL of FMC
 X-auth-accesss-token 
  .PARAMETER Domain
 Domain UUID 
- .PARAMETER name
-Name of the rule. Illegal characters (/,\,whitespaces) are automatically replaced with underscrores 
- .PARAMETER Network
-The network or host dotted-decimal IP
- .PARAMETER Prefix
-Prefix length for network (32 for host)
 /#>
     param
     (
