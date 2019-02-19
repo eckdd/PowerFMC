@@ -17,7 +17,7 @@ REST account password
     param
     (
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
-            [string]$FMCHost,
+            [string]$FMCHost=$env:FMCHost,
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
             [string]$Username,
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
@@ -1769,6 +1769,97 @@ End     {
 $response
         }
 }
+function Get-FMCDeployment          {
+<#
+.SYNOPSIS
+Displays devices with pending deployments
+.DESCRIPTION
+This cmdlet will invoke a REST request against the FMC API and retrieve items under deployment/deployabledevice
+.EXAMPLE
+Get-FMCDeployment
+name            id
+----            ----
+Site1-FW-1      80372a5e-1277-11e9-8139-8420ae49820f
+Site1-FW-2      80372a5e-1277-11e9-8139-31d10e1340da
+Site2-FW-1      80372a5e-1277-11e9-8139-134b14c1940d
+Site2-FW-2      80372a5e-1277-11e9-8139-85786c610a95
+
+
+Get-FMCDeployment -Name Site1-FW-1
+
+name            id
+----            ----
+Site1-FW-1      80372a5e-1277-11e9-8139-8420ae49820f
+
+Get-FMCDeployment -Name Site1-FW-*
+
+name            id
+----            ----
+Site1-FW-1      80372a5e-1277-11e9-8139-8420ae49820f
+Site1-FW-2      80372a5e-1277-11e9-8139-31d10e1340da
+
+.PARAMETER Name
+Name of device. Wildcards allowed
+.PARAMETER fmcHost
+Base URL of FMC
+.PARAMETER AuthAccessToken
+X-auth-accesss-token 
+ .PARAMETER Domain
+Domain UUID 
+/#>
+    param
+    (
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
+            [string]$Name="*",
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
+            [string]$FMCHost="$env:FMCHost",
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
+            [string]$AuthToken="$env:FMCAuthToken",
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
+            [string]$Domain="$env:FMCDomain"
+    )
+Begin {$out = @()}
+Process {
+$offset   = 0
+$uri      = "$FMCHost/api/fmc_config/v1/domain/$Domain/deployment/deployabledevices?offset=$offset&limit=25&expanded=true"
+$response = Get-FMCObject -uri $uri -AuthToken $env:FMCAuthToken
+$pages    = $response.paging.pages
+$DepDevs  = $response.items
+while ($pages -gt 1) {
+    $offset   = $offset+25
+    $pages--
+    $uri      = "$FMCHost/api/fmc_config/v1/domain/$Domain/deployment/deployabledevices?offset=$offset&limit=25&expanded=true"
+    $response = Get-FMCObject -uri $uri -AuthToken $env:FMCAuthToken
+    $DepDevs += $response.items
+                      }
+
+$DepDevs = $DepDevs | where {$_.name -like $Name}
+
+$offset   = 0
+$uri      = "$FMCHost/api/fmc_config/v1/domain/$Domain/devices/devicerecords?offset=$offset&limit=25&expanded=true"
+$response = Get-FMCObject -uri $uri -AuthToken $env:FMCAuthToken
+$pages    = $response.paging.pages
+$DevRecs  = $response.items
+while ($pages -gt 1) {
+    $offset   = $offset+25
+    $pages--
+    $uri      = "$FMCHost/api/fmc_config/v1/domain/$Domain/devices/devicerecords?offset=$offset&limit=25&expanded=true"
+    $response = Get-FMCObject -uri $uri -AuthToken $env:FMCAuthToken
+    $DevRecs += $response.items
+                      }
+
+ foreach ($dd in $DepDevs) {
+  $i = New-Object psobject
+  $i | Add-Member -MemberType NoteProperty -Name Name     -Value $dd.name
+  $i | Add-Member -MemberType NoteProperty -Name id       -Value ($DevRecs | where {$_.name -eq $dd.name}).id
+  $i | Add-Member -MemberType NoteProperty -Name version  -Value $dd.version
+  $i | Add-Member -MemberType NoteProperty -Name Interupt -Value $dd.trafficInterruption
+  $i | Add-Member -MemberType NoteProperty -Name Status   -Value ($dd.policyStatusList | where {$_.upToDate -ne 'True'})
+  $out += $i
+ }
+        }
+End {$out}
+}
 function Remove-FMCObject           {
         <#
  .SYNOPSIS
@@ -2429,6 +2520,60 @@ if ($JSON) {$uri ; ($body | ConvertTo-Json)} else {
 $response = Invoke-RestMethod -Method Put -Uri $uri -Headers $headers -Body ($body | ConvertTo-Json)
  }
 $response
+        }
+End {}
+}
+function Invoke-FMCDeployment       {
+<#
+ .SYNOPSIS
+Initiates a deployment to FMC managed devices
+ .DESCRIPTION
+This cmdlet will invoke a REST Post against the deployment requests API uri and trigger a deployment
+ .EXAMPLE
+Get-FMCDeployment | Invoke-FMCDeployment
+ .PARAMETER fmcHost
+Base URL of FMC
+ .PARAMETER AuthAccessToken
+X-auth-accesss-token 
+ .PARAMETER Domain
+Domain UUID 
+ .PARAMETER name
+Name of the rule. Illegal characters (/,\,whitespaces) are automatically replaced with underscrores 
+ .PARAMETER Network
+The network or host dotted-decimal IP
+ .PARAMETER Prefix
+Prefix length for network (32 for host)
+/#>
+    param
+    (
+        [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
+            [string]$id,
+        [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
+            [string]$version,
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
+        [ValidateSet("True","False")] 
+            [string]$Force="False",
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
+        [ValidateSet("True","False")] 
+            [string]$NoWarning="False",
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
+            [string]$FMCHost="$env:FMCHost",
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
+            [string]$Domain="$env:FMCDomain",
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
+            [string]$AuthToken="$env:FMCAuthToken"
+    )
+Begin {}
+Process {
+$uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/deployment/deploymentrequests"
+ 
+$body = New-Object -TypeName psobject
+$body | Add-Member -MemberType NoteProperty -name type          -Value "DeploymentRequest"
+$body | Add-Member -MemberType NoteProperty -name version       -Value $Version
+$body | Add-Member -MemberType NoteProperty -name forceDeploy   -Value $Force
+$body | Add-Member -MemberType NoteProperty -name ignoreWarning -Value $NoWarning
+$body | Add-Member -MemberType NoteProperty -name deviceList    -Value @($id)
+New-FMCObject -uri $uri -AuthToken $env:FMCAuthToken -object ($body | ConvertTo-Json)
         }
 End {}
 }
