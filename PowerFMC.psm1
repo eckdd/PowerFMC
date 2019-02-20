@@ -2546,19 +2546,19 @@ Domain UUID
 Begin {
  if ($Force) {[string]$FD = 'True'} else {[string]$FD = 'False'}
  if ($NoWarn){[string]$NW = 'True'} else {[string]$NW = 'False'}
+ $IDs = @()
+ }
+Process {
+ $ver  = $version
+ $IDs += $id
+        }
+End {
  $body = New-Object -TypeName psobject
  $body | Add-Member -MemberType NoteProperty -name type          -Value "DeploymentRequest"
  $body | Add-Member -MemberType NoteProperty -name forceDeploy   -Value $FD
  $body | Add-Member -MemberType NoteProperty -name ignoreWarning -Value $NW
- $IDs = @()
- }
-Process {
- $ver = $version
- $IDs += $id
-        }
-End {
-$body | Add-Member -MemberType NoteProperty -name version       -Value $ver
-$body | Add-Member -MemberType NoteProperty -name deviceList    -Value $IDs
+ $body | Add-Member -MemberType NoteProperty -name version       -Value $ver
+ $body | Add-Member -MemberType NoteProperty -name deviceList    -Value $IDs
 
 $uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/deployment/deploymentrequests"
 New-FMCObject -uri $uri -AuthToken $env:FMCAuthToken -object ($body | ConvertTo-Json)
