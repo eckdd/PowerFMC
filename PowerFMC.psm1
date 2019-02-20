@@ -2560,7 +2560,6 @@ End {
 $body | Add-Member -MemberType NoteProperty -name deviceList    -Value $IDs
 
 $uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/deployment/deploymentrequests"
-($body | ConvertTo-Json)
 New-FMCObject -uri $uri -AuthToken $env:FMCAuthToken -object ($body | ConvertTo-Json)
     }
 }
