@@ -2553,10 +2553,11 @@ Begin {
  $IDs = @()
  }
 Process {
- $body | Add-Member -MemberType NoteProperty -name version       -Value $version
+ $ver = $version
  $IDs += $id
         }
 End {
+$body | Add-Member -MemberType NoteProperty -name version       -Value $ver
 $body | Add-Member -MemberType NoteProperty -name deviceList    -Value $IDs
 
 $uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/deployment/deploymentrequests"
