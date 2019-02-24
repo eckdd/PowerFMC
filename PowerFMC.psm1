@@ -1853,6 +1853,7 @@ $DepDevs = $DepDevs | where {$_.name -like $Name}
   $i | Add-Member -MemberType NoteProperty -Name id       -Value $dd.device.id
   $i | Add-Member -MemberType NoteProperty -Name version  -Value $dd.version
   $i | Add-Member -MemberType NoteProperty -Name Interupt -Value $dd.trafficInterruption
+  $i | Add-Member -MemberType NoteProperty -Name canBeDeployed -Value $dd.canBeDeployed
   $i | Add-Member -MemberType NoteProperty -Name Status   -Value ($dd.policyStatusList | where {$_.upToDate -ne 'True'})
   $out += $i
  }
@@ -2550,7 +2551,9 @@ Domain UUID
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
             [string]$Domain="$env:FMCDomain",
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
-            [string]$AuthToken="$env:FMCAuthToken"
+            [string]$AuthToken="$env:FMCAuthToken",
+        [Parameter(Mandatory = $false,ValueFromPipelineByPropertyName = $true)]
+            [string]$canBeDeployed=$true
     )
 Begin {
  if ($Force) {[string]$FD = 'True'} else {[string]$FD = 'False'}
@@ -2559,18 +2562,20 @@ Begin {
  }
 Process {
  $ver  = $version
- $IDs += $id
+ if ($canBeDeployed -ne $false) {$IDs += $id}
         }
 End {
- $body = New-Object -TypeName psobject
- $body | Add-Member -MemberType NoteProperty -name type          -Value "DeploymentRequest"
- $body | Add-Member -MemberType NoteProperty -name forceDeploy   -Value $FD
- $body | Add-Member -MemberType NoteProperty -name ignoreWarning -Value $NW
- $body | Add-Member -MemberType NoteProperty -name version       -Value $ver
- $body | Add-Member -MemberType NoteProperty -name deviceList    -Value $IDs
+ if ($IDs) {
+  $body = New-Object -TypeName psobject
+  $body | Add-Member -MemberType NoteProperty -name type          -Value "DeploymentRequest"
+  $body | Add-Member -MemberType NoteProperty -name forceDeploy   -Value $FD
+  $body | Add-Member -MemberType NoteProperty -name ignoreWarning -Value $NW
+  $body | Add-Member -MemberType NoteProperty -name version       -Value $ver
+  $body | Add-Member -MemberType NoteProperty -name deviceList    -Value $IDs
 
-$uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/deployment/deploymentrequests"
-New-FMCObject -uri $uri -AuthToken $env:FMCAuthToken -object ($body | ConvertTo-Json)
+ $uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/deployment/deploymentrequests"
+ New-FMCObject -uri $uri -AuthToken $env:FMCAuthToken -object ($body | ConvertTo-Json)
+        }
     }
 }
 
