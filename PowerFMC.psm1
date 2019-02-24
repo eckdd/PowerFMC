@@ -2558,26 +2558,33 @@ Domain UUID
 Begin {
  if ($Force) {[string]$FD = 'True'} else {[string]$FD = 'False'}
  if ($NoWarn){[string]$NW = 'True'} else {[string]$NW = 'False'}
- $IDs = @()
+ $Devices = @()
  }
 Process {
- $ver  = $version
- if ($canBeDeployed -ne $false) {$IDs += $id}
-        }
+ if ($canBeDeployed -ne $false) {
+   $Devices += [PSCustomObject]@{    
+   version = $version
+   id = $ID}
+  }
+ }
 End {
- if ($IDs) {
-  $body = New-Object -TypeName psobject
-  $body | Add-Member -MemberType NoteProperty -name type          -Value "DeploymentRequest"
-  $body | Add-Member -MemberType NoteProperty -name forceDeploy   -Value $FD
-  $body | Add-Member -MemberType NoteProperty -name ignoreWarning -Value $NW
-  $body | Add-Member -MemberType NoteProperty -name version       -Value $ver
-  $body | Add-Member -MemberType NoteProperty -name deviceList    -Value $IDs
-
- $uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/deployment/deploymentrequests"
- New-FMCObject -uri $uri -AuthToken $env:FMCAuthToken -object ($body | ConvertTo-Json)
-        }
+ if ($Devices) {
+  $body = @()
+  $Devices | Group-Object version | Foreach {
+   $body += [PSCustomObject]@{ 
+    type          = "DeploymentRequest"
+    forceDeploy   = $FD
+    ignoreWarning = $NW
+    version       = $_.name
+    deviceList    = @($_.group.ID)
     }
+   }
+  $uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/deployment/deploymentrequests"
+  New-FMCObject -uri $uri -AuthToken $env:FMCAuthToken -object ($body | ConvertTo-Json)
+  }
+ }
 }
+
 
 
 $MasterProtocolList       = [ordered]@{
