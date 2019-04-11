@@ -558,7 +558,10 @@ Name of default intrusion policy
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
             [string]$AuthToken="$env:FMCAuthToken",
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
-            [string]$Domain="$env:FMCDomain"
+            [string]$Domain="$env:FMCDomain",
+        [Parameter(DontShow)]
+            [switch]$JSON
+
     )
 Begin   {
 add-type @"
@@ -605,8 +608,8 @@ $body | Add-Member -MemberType NoteProperty -name type           -Value $type
 $body | Add-Member -MemberType NoteProperty -name name           -Value "$Name"
 $body | Add-Member -MemberType NoteProperty -name description    -Value "$Description"
 $body | Add-Member -MemberType NoteProperty -name defaultAction  -Value $DefAct
-
-$response = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body ($body | ConvertTo-Json)
+if ($JSON) {($body | ConvertTo-Json)} else {
+Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body ($body | ConvertTo-Json)}
         }
 End     {}
 }
@@ -1627,8 +1630,9 @@ while ($pages -gt 1) {
     $items   += $response.items
                      }
 if ($RuleIndex) {
- $response = $items | Where-Object {$_.metadata.ruleIndex -EQ $RuleIndex}} else {
- $response = $items | Where-Object {$_.name -Like $RuleName}
+ $response = $items    | Where-Object {$_.metadata.ruleIndex -EQ $RuleIndex}} else {
+ $response = $items    | Where-Object {$_.name -Like $RuleName}
+ $response = $response | Where-Object {$_.metadata.accessPolicy.name -EQ $AccessPolicy}
  }
         }
 End     {
@@ -1711,7 +1715,6 @@ $fileObject += $i
 $fileObject | Export-Csv -Path $OutFile -NoClobber -NoTypeInformation
  } else {
 $response }
-
         }
 }
 function Get-FMCZone                {
@@ -2296,6 +2299,30 @@ if ($rule_sourceSGT)          {$body | Add-Member -MemberType NoteProperty -name
 if ($rule_sendEventsToFMC)    {$body | Add-Member -MemberType NoteProperty -name sendEventsToFMC     -Value $rule_sendEventsToFMC }
 if ($JSON) {$uri ; ($body | ConvertTo-Json -Depth 5)} else {
 Invoke-RestMethod -Method Put -Uri $uri -Headers $headers -Body ($body | ConvertTo-Json -Depth 5)
+$rule_Enabled         = @()
+$ruleUUID             = @()
+$rule_Action          = @()
+$rule_urls            = @()
+$rule_vlanTags        = @()
+$ipsPolicy            = @()
+$fPolicy              = @()
+$sZones               = @()
+$dZones               = @()
+$sNets                = @()
+$dNets                = @()
+$sPorts               = @()
+$dPorts               = @()
+$Comments             = @()
+$rule_logBegin        = @()
+$rule_logEnd          = @()
+$SyslogItem           = @()
+$rule_snmpConfig      = @()
+$variableSet          = @()
+$rule_logFiles        = @()
+$rule_applications    = @()
+$rule_sourceSGT       = @()
+$rule_sendEventsToFMC = @()
+$body                 = @()
      }
     }
 End     {}
