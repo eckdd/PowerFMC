@@ -1595,6 +1595,8 @@ Name of the rule(s). Wildcards accepted
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
             [string]$OutFile,
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
+            [switch]$IncludeParent,
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
             [switch]$Terse
     )
 Begin   {
@@ -1632,7 +1634,9 @@ while ($pages -gt 1) {
 if ($RuleIndex) {
  $response = $items    | Where-Object {$_.metadata.ruleIndex -EQ $RuleIndex}} else {
  $response = $items    | Where-Object {$_.name -Like $RuleName}
+ if (!$IncludeParent) {
  $response = $response | Where-Object {$_.metadata.accessPolicy.name -EQ $AccessPolicy}
+  }
  }
         }
 End     {
