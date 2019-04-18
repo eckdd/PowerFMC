@@ -2038,20 +2038,16 @@ add-type @"
 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
 [System.Net.ServicePointManager]::SecurityProtocol = 'Tls12'
 
-if ($SourceZones -or $DestinationZones) {$AllZones = Get-FMCZone -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse}
-if ($IntrusionPolicy)                   {$AllIPSPolicies  = Get-FMCIntrusionPolicy -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse}
-if ($FilePolicy)                        {$AllFilePolicies = Get-FMCIntrusionPolicy -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse}
-if ($SourceNetworks -or $DestinationNetworks) {
-       $AllNetObjects   = @()
-       $AllNetObjects   = Get-FMCNetworkObject -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
-       $AllNetObjects  += Get-FMCNetworkGroup  -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
-       }
-if ($SourcePorts    -or $DestinationPorts)    {
-       $AllPortObjects  = @()
-       $AllPortObjects  = Get-FMCPortObject -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
-       $AllPortObjects += Get-FMCPortGroup  -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
-       }
-if ($Syslog)                            {$SyslogAlerts = Get-FMCObject -uri "$env:FMCHost/api/fmc_config/v1/domain/$env:FMCDomain/policy/syslogalerts" -AuthToken $env:FMCAuthToken}
+$AllZones = Get-FMCZone -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$AllIPSPolicies  = Get-FMCIntrusionPolicy -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$AllFilePolicies = Get-FMCIntrusionPolicy -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$AllNetObjects   = @()
+$AllNetObjects   = Get-FMCNetworkObject -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$AllNetObjects  += Get-FMCNetworkGroup  -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$AllPortObjects  = @()
+$AllPortObjects  = Get-FMCPortObject -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$AllPortObjects += Get-FMCPortGroup  -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$SyslogAlerts = Get-FMCObject -uri "$env:FMCHost/api/fmc_config/v1/domain/$env:FMCDomain/policy/syslogalerts" -AuthToken $env:FMCAuthToken
          }
 Process {
 $ruleUUID   = $InputObject.id
@@ -2108,6 +2104,8 @@ $dZones | Add-Member -MemberType NoteProperty -Name objects -Value $dZ
  } else {$dZones = $InputObject.destinationZones}
 ## /Parsing Source or destination Security Zones
 
+
+
 ## Parsing Source or destination networks
  if ($SourceNetworks)      {
 $literals     = @()
@@ -2133,6 +2131,9 @@ $SourceNetworks_split | foreach {
  if ($literals) { $literals | foreach {
             $Obj = New-Object psobject
             $Obj | Add-Member -MemberType NoteProperty -Name value -Value "$_"
+            $type = @()
+            if ($_ -match '^(\d+\.){3}\d+$') {$type = 'Host'} elseif ($_ -match '^(\d+\.){3}\d+\/\d+$') {$type = 'Network'} elseif ($_ -match '^(\d+\.){3}\d+-(\d+\.){3}\d+$') {$type = 'Range'}
+            $Obj | Add-Member -MemberType NoteProperty -Name type  -Value "$type"
             $SourceNetLit += $Obj
             if ($InputObject.sourceNetworks.literals -and (!$Replace)){$SourceNetLit += $InputObject.sourceNetworks.literals}
                               }
@@ -2164,6 +2165,9 @@ $DestinationNetworks_split | foreach {
  if ($literals) { $literals | foreach {
             $Obj = New-Object psobject
             $Obj | Add-Member -MemberType NoteProperty -Name value -Value "$_"
+            $type = @()
+            if ($_ -match '^(\d+\.){3}\d+$') {$type = 'Host'} elseif ($_ -match '^(\d+\.){3}\d+\/\d+$') {$type = 'Network'} elseif ($_ -match '^(\d+\.){3}\d+-(\d+\.){3}\d+$') {$type = 'Range'}
+            $Obj | Add-Member -MemberType NoteProperty -Name type  -Value "$type"
             $DestinationNetLit += $Obj
             if ($InputObject.destinationNetworks.literals -and (!$Replace)){$DestinationNetLit += $InputObject.destinationNetworks.literals}
                               }
@@ -2310,12 +2314,12 @@ $rule_urls            = @()
 $rule_vlanTags        = @()
 $ipsPolicy            = @()
 $fPolicy              = @()
-$sZones               = @()
-$dZones               = @()
-$sNets                = @()
-$dNets                = @()
-$sPorts               = @()
-$dPorts               = @()
+$sZones = $SourceZones_split         = @()
+$dZones = $DestinationZones_split    = @()
+$sNets  = $SourceNetworks_split      = @()
+$dNets  = $DestinationNetworks_split = @()
+$sPorts = $SourcePorts_split         = @()
+$dPorts = $DestinationPorts_split    = @()
 $Comments             = @()
 $rule_logBegin        = @()
 $rule_logEnd          = @()
