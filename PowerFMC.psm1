@@ -558,7 +558,10 @@ Name of default intrusion policy
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
             [string]$AuthToken="$env:FMCAuthToken",
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
-            [string]$Domain="$env:FMCDomain"
+            [string]$Domain="$env:FMCDomain",
+        [Parameter(DontShow)]
+            [switch]$JSON
+
     )
 Begin   {
 add-type @"
@@ -605,8 +608,8 @@ $body | Add-Member -MemberType NoteProperty -name type           -Value $type
 $body | Add-Member -MemberType NoteProperty -name name           -Value "$Name"
 $body | Add-Member -MemberType NoteProperty -name description    -Value "$Description"
 $body | Add-Member -MemberType NoteProperty -name defaultAction  -Value $DefAct
-
-$response = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body ($body | ConvertTo-Json)
+if ($JSON) {($body | ConvertTo-Json)} else {
+Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body ($body | ConvertTo-Json)}
         }
 End     {}
 }
@@ -1592,6 +1595,8 @@ Name of the rule(s). Wildcards accepted
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
             [string]$OutFile,
         [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
+            [switch]$IncludeParent,
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$false)]
             [switch]$Terse
     )
 Begin   {
@@ -1627,8 +1632,11 @@ while ($pages -gt 1) {
     $items   += $response.items
                      }
 if ($RuleIndex) {
- $response = $items | Where-Object {$_.metadata.ruleIndex -EQ $RuleIndex}} else {
- $response = $items | Where-Object {$_.name -Like $RuleName}
+ $response = $items    | Where-Object {$_.metadata.ruleIndex -EQ $RuleIndex}} else {
+ $response = $items    | Where-Object {$_.name -Like $RuleName}
+ if (!$IncludeParent) {
+ $response = $response | Where-Object {$_.metadata.accessPolicy.name -EQ $AccessPolicy}
+  }
  }
         }
 End     {
@@ -1711,7 +1719,6 @@ $fileObject += $i
 $fileObject | Export-Csv -Path $OutFile -NoClobber -NoTypeInformation
  } else {
 $response }
-
         }
 }
 function Get-FMCZone                {
@@ -2032,20 +2039,16 @@ add-type @"
 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
 [System.Net.ServicePointManager]::SecurityProtocol = 'Tls12'
 
-if ($SourceZones -or $DestinationZones) {$AllZones = Get-FMCZone -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse}
-if ($IntrusionPolicy)                   {$AllIPSPolicies  = Get-FMCIntrusionPolicy -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse}
-if ($FilePolicy)                        {$AllFilePolicies = Get-FMCIntrusionPolicy -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse}
-if ($SourceNetworks -or $DestinationNetworks) {
-       $AllNetObjects   = @()
-       $AllNetObjects   = Get-FMCNetworkObject -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
-       $AllNetObjects  += Get-FMCNetworkGroup  -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
-       }
-if ($SourcePorts    -or $DestinationPorts)    {
-       $AllPortObjects  = @()
-       $AllPortObjects  = Get-FMCPortObject -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
-       $AllPortObjects += Get-FMCPortGroup  -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
-       }
-if ($Syslog)                            {$SyslogAlerts = Get-FMCObject -uri "$env:FMCHost/api/fmc_config/v1/domain/$env:FMCDomain/policy/syslogalerts" -AuthToken $env:FMCAuthToken}
+$AllZones = Get-FMCZone -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$AllIPSPolicies  = Get-FMCIntrusionPolicy -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$AllFilePolicies = Get-FMCIntrusionPolicy -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$AllNetObjects   = @()
+$AllNetObjects   = Get-FMCNetworkObject -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$AllNetObjects  += Get-FMCNetworkGroup  -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$AllPortObjects  = @()
+$AllPortObjects  = Get-FMCPortObject -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$AllPortObjects += Get-FMCPortGroup  -AuthToken $env:FMCAuthToken -FMCHost $env:FMCHost -Domain $env:FMCDomain -Terse
+$SyslogAlerts = Get-FMCObject -uri "$env:FMCHost/api/fmc_config/v1/domain/$env:FMCDomain/policy/syslogalerts" -AuthToken $env:FMCAuthToken
          }
 Process {
 $ruleUUID   = $InputObject.id
@@ -2102,6 +2105,8 @@ $dZones | Add-Member -MemberType NoteProperty -Name objects -Value $dZ
  } else {$dZones = $InputObject.destinationZones}
 ## /Parsing Source or destination Security Zones
 
+
+
 ## Parsing Source or destination networks
  if ($SourceNetworks)      {
 $literals     = @()
@@ -2127,6 +2132,9 @@ $SourceNetworks_split | foreach {
  if ($literals) { $literals | foreach {
             $Obj = New-Object psobject
             $Obj | Add-Member -MemberType NoteProperty -Name value -Value "$_"
+            $type = @()
+            if ($_ -match '^(\d+\.){3}\d+$') {$type = 'Host'} elseif ($_ -match '^(\d+\.){3}\d+\/\d+$') {$type = 'Network'} elseif ($_ -match '^(\d+\.){3}\d+-(\d+\.){3}\d+$') {$type = 'Range'}
+            $Obj | Add-Member -MemberType NoteProperty -Name type  -Value "$type"
             $SourceNetLit += $Obj
             if ($InputObject.sourceNetworks.literals -and (!$Replace)){$SourceNetLit += $InputObject.sourceNetworks.literals}
                               }
@@ -2158,6 +2166,9 @@ $DestinationNetworks_split | foreach {
  if ($literals) { $literals | foreach {
             $Obj = New-Object psobject
             $Obj | Add-Member -MemberType NoteProperty -Name value -Value "$_"
+            $type = @()
+            if ($_ -match '^(\d+\.){3}\d+$') {$type = 'Host'} elseif ($_ -match '^(\d+\.){3}\d+\/\d+$') {$type = 'Network'} elseif ($_ -match '^(\d+\.){3}\d+-(\d+\.){3}\d+$') {$type = 'Range'}
+            $Obj | Add-Member -MemberType NoteProperty -Name type  -Value "$type"
             $DestinationNetLit += $Obj
             if ($InputObject.destinationNetworks.literals -and (!$Replace)){$DestinationNetLit += $InputObject.destinationNetworks.literals}
                               }
@@ -2297,6 +2308,30 @@ if ($rule_sourceSGT)          {$body | Add-Member -MemberType NoteProperty -name
 if ($rule_sendEventsToFMC)    {$body | Add-Member -MemberType NoteProperty -name sendEventsToFMC     -Value $rule_sendEventsToFMC }
 if ($JSON) {$uri ; ($body | ConvertTo-Json -Depth 5)} else {
 Invoke-RestMethod -Method Put -Uri $uri -Headers $headers -Body ($body | ConvertTo-Json -Depth 5)
+$rule_Enabled         = @()
+$ruleUUID             = @()
+$rule_Action          = @()
+$rule_urls            = @()
+$rule_vlanTags        = @()
+$ipsPolicy            = @()
+$fPolicy              = @()
+$sZones = $SourceZones_split         = @()
+$dZones = $DestinationZones_split    = @()
+$sNets  = $SourceNetworks_split      = @()
+$dNets  = $DestinationNetworks_split = @()
+$sPorts = $SourcePorts_split         = @()
+$dPorts = $DestinationPorts_split    = @()
+$Comments             = @()
+$rule_logBegin        = @()
+$rule_logEnd          = @()
+$SyslogItem           = @()
+$rule_snmpConfig      = @()
+$variableSet          = @()
+$rule_logFiles        = @()
+$rule_applications    = @()
+$rule_sourceSGT       = @()
+$rule_sendEventsToFMC = @()
+$body                 = @()
      }
     }
 End     {}
