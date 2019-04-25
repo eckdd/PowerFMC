@@ -17,7 +17,7 @@ Firepower Mangement Center 6.2.3
 # Setup/Update
 
 Paste the following in PowerShell:
-
+#
 md ($env:PSModulePath -split ';')[0] -ErrorAction Ignore
 
 cd ($env:PSModulePath -split ';')[0]
@@ -33,6 +33,7 @@ copy ".\master\PowerFMC-master\\*" -Container PowerFMC -Force
 del .\master\ -Force -Recurse
 
 del .\master.zip
+#
 
 # Usage 
 
