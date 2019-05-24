@@ -1866,6 +1866,105 @@ $DepDevs = $DepDevs | where {$_.name -like $Name}
         }
 End {$out}
 }
+function Get-FMCUrlObject           {
+    <#
+ .SYNOPSIS
+Retrieves all URL items 
+ .DESCRIPTION
+This cmdlet will invoke a REST GET against multiple URL URIs and provide a list of all URL objects, groups, and SI feeds/lists
+ .EXAMPLE
+
+ .PARAMETER Name
+Name of the URL object
+ .PARAMETER AuthAccessToken
+Session Authentication Access Token
+/#>
+param
+    (
+        [Parameter(Mandatory=$false, ValueFromPipeline=$true)]
+            [string]$Name="*",
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
+            [string]$AuthToken="$env:FMCAuthToken",
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
+            [string]$FMCHost="$env:FMCHost",
+        [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
+            [string]$Domain="$env:FMCDomain"
+    )
+Begin   {
+add-type @"
+    using System.Net;
+    using System.Security.Cryptography.X509Certificates;
+    public class TrustAllCertsPolicy : ICertificatePolicy {
+        public bool CheckValidationResult(
+            ServicePoint srvPoint, X509Certificate certificate,
+            WebRequest request, int certificateProblem) {
+            return true;
+        }
+    }
+"@
+[System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+[System.Net.ServicePointManager]::SecurityProtocol = 'Tls12'
+         }
+Process {
+$items = @()
+
+### Collect Categories
+$uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/object/urlcategories"
+$response = @()
+$response = Get-FMCObject -uri $uri -AuthToken $AuthToken
+ $items += $response.items 
+while ($response.paging.next) {
+ $uri = $response.paging.next[0]
+ $response = Get-FMCObject -uri $uri -AuthToken $AuthToken
+ $items += $response.items 
+ $uri = @()
+}
+$response = @()
+
+### Collect Groups
+$uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/object/urlgroups"
+$response = @()
+$response = Get-FMCObject -uri $uri -AuthToken $AuthToken
+ $items += $response.items | select name,id,type
+while ($response.paging.next) {
+ $uri = $response.paging.next[0]
+ $response = Get-FMCObject -uri $uri -AuthToken $AuthToken
+ $items += $response.items | select name,id,type
+ $uri = @()
+}
+$response = @()
+
+### Collect Urls
+$uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/object/urls"
+$response = @()
+$response = Get-FMCObject -uri $uri -AuthToken $AuthToken
+ $items += $response.items | select name,id,type
+while ($response.paging.next) {
+ $uri = $response.paging.next[0]
+ $response = Get-FMCObject -uri $uri -AuthToken $AuthToken
+ $items += $response.items | select name,id,type
+ $uri = @()
+}
+$response = @()
+
+### Collect Lists
+$uri = "$FMCHost/api/fmc_config/v1/domain/$Domain/object/siurllists"
+$response = @()
+$response = Get-FMCObject -uri $uri -AuthToken $AuthToken
+ $items += $response.items | select name,id,type
+while ($response.paging.next) {
+ $uri = $response.paging.next[0]
+ $response = Get-FMCObject -uri $uri -AuthToken $AuthToken
+ $items += $response.items | select name,id,type
+ $uri = @()
+}
+$response = @()
+
+        }
+End     {
+ $items | Where-Object {$_.name -like "$Name"}
+        }
+}
 function Remove-FMCObject           {
         <#
  .SYNOPSIS
@@ -2892,3 +2991,5 @@ $MasterProtocolListByName = [ordered]@{
  'ROHC'            = 142
  'ReservEd'        = 255
  }
+
+
