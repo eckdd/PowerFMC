@@ -38,3 +38,7 @@ del .\master.zip
 # Usage 
 
 Begin by generating  an Auth Access Token with the New-FMCAuthToken function. This will prompt for the FMC host URL and credentials with API access. Once ran, a token valid for 30 minutes will be stored in the current PowerShell session environment and all other functions can be used without specifying the token, domain, or FMC host.
+
+To see a list of all functions, run Get-Command -Module PowerFMC
+To see help with examples for any specific functions, run Get-Help the-name-of-the-function -Examples; e.g. Get-Help New-FMCNetworkObject -Examples
+You can also add a -? at the end of a function to see the possible parameters avaialble for it; e.g. New-FMCAuthToken -?
